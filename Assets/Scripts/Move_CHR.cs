@@ -8,7 +8,8 @@ public class Move_CHR : MonoBehaviour
 
     private float moveX;
     private float moveY;
-
+    
+    private bool controlsLocked;
     private bool CanClimb = false;
     private bool IsGrounded;
     private bool TouchingWall;
@@ -37,6 +38,12 @@ public class Move_CHR : MonoBehaviour
 
     void Update()
     {
+        if (controlsLocked)
+            {
+                jumpPressed = false;
+                return;
+            }
+
         if (playerHealth != null && playerHealth.IsDead)
             return;
 
@@ -51,6 +58,12 @@ public class Move_CHR : MonoBehaviour
     {
         if (playerHealth != null && playerHealth.IsDead)
             return;
+
+        if (controlsLocked)
+        {
+            rb.linearVelocity = Vector2.zero;
+            return;
+        }
 
         bool grounded = IsGrounded;
         bool wall = TouchingWall;
@@ -147,6 +160,7 @@ public class Move_CHR : MonoBehaviour
     // Impulso ao derrotar um inimigo pisando nele
     public void BounceAfterStomp(float force)
     {
+        rb.gravityScale = originalGravity;
         rb.linearVelocityY = force;
     }
 
@@ -155,6 +169,18 @@ public class Move_CHR : MonoBehaviour
     {
         if (playerHealth != null)
             playerHealth.Die();
+    }
+
+    // Bloqueia ou desbloqueia o controle do jogador
+    public void SetControlLocked(bool locked)
+    {
+        controlsLocked = locked;
+
+        if (locked)
+        {
+            rb.linearVelocity = Vector2.zero;
+            jumpPressed = false;
+        }
     }
 
     private void OnCollisionStay2D(Collision2D collision)
