@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class Fragmento : MonoBehaviour
 {
+    public ColorManager colorManager;
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))
@@ -12,6 +14,9 @@ public class Fragmento : MonoBehaviour
             if (player != null)
             {
                 player.UnlockClimb();
+
+                colorManager.AtivarCor();
+
                 Destroy(gameObject);
             }
         }

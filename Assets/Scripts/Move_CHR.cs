@@ -8,13 +8,16 @@ public class Move_CHR : MonoBehaviour
 
     private float moveX;
     private float moveY;
-    
+
     private bool controlsLocked;
     private bool CanClimb = false;
     private bool IsGrounded;
     private bool TouchingWall;
     private bool jumpPressed;
+    private bool jumpHeld;
+    private bool jumpReleased;
     private bool isKnockedBack;
+    private bool stompBounceActive;
 
     private float wallNormalX;
     private float originalGravity;
@@ -28,6 +31,11 @@ public class Move_CHR : MonoBehaviour
     public float WallJumpVertical = 4f;
     public float WallJumpLockTime = 0.2f;
 
+    // NOVAS CONFIGURAÇÕES
+    public float jumpCutMultiplier = 0.5f;
+    public float fastFallGravityMultiplier = 2.5f;
+    public float maxFallSpeed = 12f;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -39,10 +47,12 @@ public class Move_CHR : MonoBehaviour
     void Update()
     {
         if (controlsLocked)
-            {
-                jumpPressed = false;
-                return;
-            }
+        {
+            jumpPressed = false;
+            jumpHeld = false;
+            jumpReleased = false;
+            return;
+        }
 
         if (playerHealth != null && playerHealth.IsDead)
             return;
@@ -52,6 +62,12 @@ public class Move_CHR : MonoBehaviour
 
         if (Input.GetButtonDown("Jump"))
             jumpPressed = true;
+
+        // NOVO: detecta se o jogador está segurando ou soltando espaço
+        jumpHeld = Input.GetButton("Jump");
+
+        if (Input.GetButtonUp("Jump"))
+            jumpReleased = true;
     }
 
     void FixedUpdate()
@@ -85,6 +101,7 @@ public class Move_CHR : MonoBehaviour
             else
             {
                 jumpPressed = false;
+                jumpReleased = false;
                 return;
             }
         }
@@ -126,7 +143,37 @@ public class Move_CHR : MonoBehaviour
             rb.linearVelocityY = JumpForce;
         }
 
+        // NOVO: soltar espaço reduz a altura do pulo
+        if (jumpReleased && rb.linearVelocity.y > 0f)
+        {
+            rb.linearVelocityY *= jumpCutMultiplier;
+        }
+
+        // Queda rápida ao segurar S
+
+       // Protege o impulso do stomp até o personagem atingir o ponto mais alto
+        if (stompBounceActive)
+        {
+            if (rb.linearVelocity.y <= 0f)
+                stompBounceActive = false;
+        }
+
+        // Queda rápida
+        if (!grounded && !wall && moveY < -0.5f && !stompBounceActive)
+        {
+            rb.gravityScale = originalGravity * fastFallGravityMultiplier;
+
+            if (rb.linearVelocity.y > 0f)
+                rb.linearVelocityY = 0f;
+
+            rb.linearVelocityY = Mathf.Max(
+                rb.linearVelocity.y,
+                -maxFallSpeed
+            );
+        }
+
         jumpPressed = false;
+        jumpReleased = false;
     }
 
     public void UnlockClimb()
@@ -162,6 +209,8 @@ public class Move_CHR : MonoBehaviour
     {
         rb.gravityScale = originalGravity;
         rb.linearVelocityY = force;
+
+        stompBounceActive = true;
     }
 
     // Mantém compatibilidade com o DeathZone antigo
@@ -180,6 +229,8 @@ public class Move_CHR : MonoBehaviour
         {
             rb.linearVelocity = Vector2.zero;
             jumpPressed = false;
+            jumpHeld = false;
+            jumpReleased = false;
         }
     }
 
