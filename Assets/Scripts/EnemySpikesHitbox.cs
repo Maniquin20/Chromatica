@@ -34,7 +34,7 @@ public class EnemySpikesHitbox : MonoBehaviour
             Rigidbody2D playerRb = player.GetComponent<Rigidbody2D>();
 
             bool stompedFromAbove =
-                playerRb.linearVelocity.y <= 0.1f &&
+                playerRb.velocity.y <= 0.1f &&
                 other.bounds.min.y >= hitbox.bounds.center.y - 0.05f;
 
             if (stompedFromAbove)

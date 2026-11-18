@@ -16,7 +16,7 @@ public class Inimigo : MonoBehaviour
 
     void FixedUpdate()
     {
-        rb.linearVelocityX = direction * speed;
+        rb.velocity = new Vector2(direction * speed, rb.velocity.y);
     }
 
     private void OnCollisionStay2D(Collision2D collision)

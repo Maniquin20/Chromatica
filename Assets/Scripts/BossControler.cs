@@ -186,7 +186,7 @@ public class BossController : MonoBehaviour
             return;
 
         // O jogador precisa estar descendo.
-        if (playerRb.linearVelocity.y >= 0)
+        if (playerRb.velocity.y >= 0)
             return;
 
         // O centro do jogador precisa estar acima

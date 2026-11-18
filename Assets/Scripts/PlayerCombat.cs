@@ -34,7 +34,7 @@ public class PlayerCombat : MonoBehaviour
         // Verifica se o jogador pisou no inimigo
         foreach (ContactPoint2D contact in collision.contacts)
         {
-            if (contact.normal.y > 0.5f && rb.linearVelocity.y <= 0.1f)
+            if (contact.normal.y > 0.5f && rb.velocity.y <= 0.1f)
             {
                 enemy.Die();
                 movement.BounceAfterStomp(StompForce);

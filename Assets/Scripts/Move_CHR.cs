@@ -77,7 +77,7 @@ public class Move_CHR : MonoBehaviour
 
         if (controlsLocked)
         {
-            rb.linearVelocity = Vector2.zero;
+            rb.velocity = Vector2.zero;
             return;
         }
 
@@ -94,7 +94,7 @@ public class Move_CHR : MonoBehaviour
         // Bloqueio durante o knockback
         if (isKnockedBack)
         {
-            if (grounded && rb.linearVelocity.y <= 0.1f)
+            if (grounded && rb.velocity.y <= 0.1f)
             {
                 isKnockedBack = false;
             }
@@ -111,7 +111,7 @@ public class Move_CHR : MonoBehaviour
         {
             rb.gravityScale = originalGravity;
 
-            rb.linearVelocity = new Vector2(
+            rb.velocity = new Vector2(
                 wallDirection * WallJumpHorizontal,
                 WallJumpVertical
             );
@@ -124,7 +124,7 @@ public class Move_CHR : MonoBehaviour
         {
             rb.gravityScale = 0f;
 
-            rb.linearVelocity = new Vector2(
+            rb.velocity = new Vector2(
                 0f,
                 moveY * ClimbSpeed
             );
@@ -134,19 +134,19 @@ public class Move_CHR : MonoBehaviour
         else
         {
             rb.gravityScale = originalGravity;
-            rb.linearVelocityX = moveX * speed;
+            rb.velocity = new Vector2(moveX * speed, rb.velocity.y);
         }
 
         // Pulo normal
         if (jumpPressed && grounded && !wall)
         {
-            rb.linearVelocityY = JumpForce;
+            rb.velocity = new Vector2(rb.velocity.x, JumpForce);
         }
 
         // NOVO: soltar espaço reduz a altura do pulo
-        if (jumpReleased && rb.linearVelocity.y > 0f)
+        if (jumpReleased && rb.velocity.y > 0f)
         {
-            rb.linearVelocityY *= jumpCutMultiplier;
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * jumpCutMultiplier);
         }
 
         // Queda rápida ao segurar S
@@ -154,7 +154,7 @@ public class Move_CHR : MonoBehaviour
        // Protege o impulso do stomp até o personagem atingir o ponto mais alto
         if (stompBounceActive)
         {
-            if (rb.linearVelocity.y <= 0f)
+            if (rb.velocity.y <= 0f)
                 stompBounceActive = false;
         }
 
@@ -163,13 +163,13 @@ public class Move_CHR : MonoBehaviour
         {
             rb.gravityScale = originalGravity * fastFallGravityMultiplier;
 
-            if (rb.linearVelocity.y > 0f)
-                rb.linearVelocityY = 0f;
+            if (rb.velocity.y > 0f)
+                rb.velocity = new Vector2(rb.velocity.x, 0f);
 
-            rb.linearVelocityY = Mathf.Max(
-                rb.linearVelocity.y,
+            rb.velocity = new Vector2(rb.velocity.x, Mathf.Max(
+                rb.velocity.y,
                 -maxFallSpeed
-            );
+            ));
         }
 
         jumpPressed = false;
@@ -195,7 +195,7 @@ public class Move_CHR : MonoBehaviour
             transform.position.x - enemy.position.x
         );
 
-        rb.linearVelocity = new Vector2(
+        rb.velocity = new Vector2(
             direction * horizontalForce,
             verticalForce
         );
@@ -208,7 +208,7 @@ public class Move_CHR : MonoBehaviour
     public void BounceAfterStomp(float force)
     {
         rb.gravityScale = originalGravity;
-        rb.linearVelocityY = force;
+        rb.velocity = new Vector2(rb.velocity.x, force);
 
         stompBounceActive = true;
     }
@@ -227,7 +227,7 @@ public class Move_CHR : MonoBehaviour
 
         if (locked)
         {
-            rb.linearVelocity = Vector2.zero;
+            rb.velocity = Vector2.zero;
             jumpPressed = false;
             jumpHeld = false;
             jumpReleased = false;
