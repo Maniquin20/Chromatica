@@ -4,21 +4,23 @@ using UnityEngine;
 public class Fragmento : MonoBehaviour
 {
     public ColorManager colorManager;
+    private bool collected;
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
-        {
-            Move_CHR player = other.GetComponent<Move_CHR>();
+        if (collected)
+            return;
 
-            if (player != null)
-            {
-                player.UnlockClimb();
+        Move_CHR player = other.GetComponentInParent<Move_CHR>();
+        if (player == null)
+            return;
 
-                colorManager.AtivarCor();
+        collected = true;
+        player.UnlockClimb();
 
-                Destroy(gameObject);
-            }
-        }
+        if (colorManager != null)
+            colorManager.AtivarCor(player, transform.position);
+
+        Destroy(gameObject);
     }
 }

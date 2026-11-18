@@ -117,6 +117,7 @@ public class Move_CHR : MonoBehaviour
             );
 
             wallJumpTimer = WallJumpLockTime;
+            playerHealth?.PlayJumpSound();
         }
 
         // Escalada
@@ -141,6 +142,7 @@ public class Move_CHR : MonoBehaviour
         if (jumpPressed && grounded && !wall)
         {
             rb.linearVelocityY = JumpForce;
+            playerHealth?.PlayJumpSound();
         }
 
         // NOVO: soltar espaço reduz a altura do pulo
@@ -209,6 +211,7 @@ public class Move_CHR : MonoBehaviour
     {
         rb.gravityScale = originalGravity;
         rb.linearVelocityY = force;
+        playerHealth?.PlayJumpSound();
 
         stompBounceActive = true;
     }
