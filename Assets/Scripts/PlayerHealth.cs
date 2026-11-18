@@ -1,16 +1,38 @@
 
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System;
 
 public class PlayerHealth : MonoBehaviour
 {
     private SpriteRenderer spriteRenderer;
     private Move_CHR movement;
+    private AudioSource audioSource;
+    [SerializeField] private AudioClip jumpSound;
+    [SerializeField] private AudioClip damageSound;
+    [SerializeField, Range(0f, 1f)] private float soundVolume = 0.3f;
 
     private float invulnerabilityTimer;
     private bool collisionIgnored;
 
     public int health = 3;
+    public int maxHealth = 3;
+
+    public event Action<int> HealthChanged;
+
+    public void RestoreFullHealth()
+    {
+        health = maxHealth;
+        HealthChanged?.Invoke(health);
+    }
+
+    public void PlayJumpSound() => PlaySound(jumpSound);
+
+    private void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+            audioSource.PlayOneShot(clip, soundVolume);
+    }
 
     public float KnockbackHorizontal = 6f;
     public float KnockbackVertical = 3f;
@@ -24,6 +46,9 @@ public class PlayerHealth : MonoBehaviour
     {
         spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         movement = GetComponent<Move_CHR>();
+        audioSource = GetComponent<AudioSource>();
+        maxHealth = Mathf.Max(1, maxHealth);
+        health = maxHealth;
     }
 
     void Start()
@@ -83,6 +108,9 @@ public class PlayerHealth : MonoBehaviour
             return;
 
         health--;
+        PlaySound(damageSound);
+
+        HealthChanged?.Invoke(health);
 
         Debug.Log("Vida restante: " + health);
 
