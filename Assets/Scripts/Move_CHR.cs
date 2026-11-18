@@ -117,6 +117,7 @@ public class Move_CHR : MonoBehaviour
             );
 
             wallJumpTimer = WallJumpLockTime;
+            playerHealth?.PlayJumpSound();
         }
 
         // Escalada
