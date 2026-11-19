@@ -1,5 +1,6 @@
 
 using UnityEngine;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(Move_CHR))]
 [RequireComponent(typeof(PlayerHealth))]
@@ -8,6 +9,8 @@ public class PlayerCombat : MonoBehaviour
     private Rigidbody2D rb;
     private Move_CHR movement;
     private PlayerHealth playerHealth;
+    private readonly HashSet<Inimigo> contactingEnemies = new HashSet<Inimigo>();
+    private readonly HashSet<Inimigo> stompCandidates = new HashSet<Inimigo>();
 
     public float StompForce = 5f;
 
@@ -18,11 +21,37 @@ public class PlayerCombat : MonoBehaviour
         playerHealth = GetComponent<PlayerHealth>();
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void FixedUpdate()
     {
         if (playerHealth.IsDead || playerHealth.IsInvulnerable)
+        {
+            contactingEnemies.Clear();
+            stompCandidates.Clear();
             return;
+        }
 
+        if (stompCandidates.Count > 0)
+        {
+            foreach (Inimigo enemy in stompCandidates)
+                enemy.Die();
+
+            movement.BounceAfterStomp(StompForce);
+        }
+        else if (contactingEnemies.Count > 0)
+        {
+            foreach (Inimigo enemy in contactingEnemies)
+            {
+                playerHealth.TakeDamage(enemy.transform);
+                break;
+            }
+        }
+
+        contactingEnemies.Clear();
+        stompCandidates.Clear();
+    }
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
         if (!collision.gameObject.CompareTag("Enemy"))
             return;
 
@@ -31,18 +60,15 @@ public class PlayerCombat : MonoBehaviour
         if (enemy == null)
             return;
 
-        // Verifica se o jogador pisou no inimigo
+        contactingEnemies.Add(enemy);
+
         foreach (ContactPoint2D contact in collision.contacts)
         {
             if (contact.normal.y > 0.5f && rb.velocity.y <= 0.1f)
             {
-                enemy.Die();
-                movement.BounceAfterStomp(StompForce);
+                stompCandidates.Add(enemy);
                 return;
             }
         }
-
-        // Caso contrário, recebe dano
-        playerHealth.TakeDamage(enemy.transform);
     }
 }

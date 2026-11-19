@@ -4,6 +4,7 @@ using UnityEngine;
 public class EnemySpikes : MonoBehaviour
 {
     private SpriteRenderer spriteRenderer;
+    private SpriteRenderer faceSpriteRenderer;
 
     private float timer;
     private bool faceExposed;
@@ -31,6 +32,27 @@ public class EnemySpikes : MonoBehaviour
     void Awake()
     {
         spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        if (faceHitbox != null)
+        {
+            faceSpriteRenderer = faceHitbox.GetComponentInChildren<SpriteRenderer>();
+
+            if (faceSpriteRenderer != null)
+            {
+                faceSpriteRenderer.color = faceColor;
+                if (faceExposedSprite != null)
+                    faceSpriteRenderer.sprite = faceExposedSprite;
+
+                if (faceHitbox is BoxCollider2D faceBox)
+                    faceSpriteRenderer.transform.localPosition = faceBox.offset;
+            }
+        }
+
+        if (spriteRenderer != null)
+        {
+            if (spikesUpSprite != null)
+                spriteRenderer.sprite = spikesUpSprite;
+            spriteRenderer.color = spikesColor;
+        }
     }
 
     void Start()
@@ -59,45 +81,19 @@ public class EnemySpikes : MonoBehaviour
         {
             timer = faceDuration;
 
-            if (spriteRenderer != null)
-            {
-                if (faceExposedSprite != null)
-                {
-                    spriteRenderer.sprite = faceExposedSprite;
-                    spriteRenderer.color = Color.white;
-                }
-                else
-                {
-                    spriteRenderer.color = faceColor;
-                }
-            }
-
             spikesHitbox.enabled = true;
             faceHitbox.enabled = true;
-
-            Debug.Log("Inimigo: ROSTO EXPOSTO");
+            if (faceSpriteRenderer != null)
+                faceSpriteRenderer.enabled = true;
         }
         else
         {
             timer = spikesDuration;
 
-            if (spriteRenderer != null)
-            {
-                if (spikesUpSprite != null)
-                {
-                    spriteRenderer.sprite = spikesUpSprite;
-                    spriteRenderer.color = Color.white;
-                }
-                else
-                {
-                    spriteRenderer.color = spikesColor;
-                }
-            }
-
             spikesHitbox.enabled = true;
             faceHitbox.enabled = false;
-
-            Debug.Log("Inimigo: ESPINHOS LEVANTADOS");
+            if (faceSpriteRenderer != null)
+                faceSpriteRenderer.enabled = false;
         }
     }
 
@@ -110,6 +106,8 @@ public class EnemySpikes : MonoBehaviour
 
         spikesHitbox.enabled = false;
         faceHitbox.enabled = false;
+        if (faceSpriteRenderer != null)
+            faceSpriteRenderer.enabled = false;
 
         Destroy(gameObject);
     }

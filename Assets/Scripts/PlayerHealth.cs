@@ -7,6 +7,7 @@ public class PlayerHealth : MonoBehaviour
 {
     private SpriteRenderer spriteRenderer;
     private Move_CHR movement;
+    private CheckpointManager checkpointManager;
     private AudioSource audioSource;
     [SerializeField] private AudioClip jumpSound;
     [SerializeField] private AudioClip damageSound;
@@ -46,6 +47,7 @@ public class PlayerHealth : MonoBehaviour
     {
         spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         movement = GetComponent<Move_CHR>();
+        checkpointManager = GetComponent<CheckpointManager>();
         audioSource = GetComponent<AudioSource>();
         maxHealth = Mathf.Max(1, maxHealth);
         health = maxHealth;
@@ -135,6 +137,20 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
+    public void RespawnAt(Vector3 position)
+    {
+        movement?.ResetAfterRespawn(position);
+        health = maxHealth;
+        IsDead = false;
+        invulnerabilityTimer = Mathf.Max(0f, InvulnerabilityTime);
+        SetEnemyCollision(invulnerabilityTimer > 0f);
+
+        if (spriteRenderer != null)
+            spriteRenderer.enabled = true;
+
+        HealthChanged?.Invoke(health);
+    }
+
     private void SetEnemyCollision(bool ignore)
     {
         if (collisionIgnored == ignore)
@@ -161,6 +177,12 @@ public class PlayerHealth : MonoBehaviour
             return;
 
         IsDead = true;
+
+        if (checkpointManager != null)
+        {
+            checkpointManager.Respawn();
+            return;
+        }
 
         Rigidbody2D rb = GetComponent<Rigidbody2D>();
 

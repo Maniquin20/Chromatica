@@ -16,6 +16,7 @@ public class Fragmento : MonoBehaviour
             return;
 
         collected = true;
+        player.GetComponent<CheckpointManager>()?.SetCheckpoint(player.transform.position);
         player.UnlockClimb();
 
         if (colorManager != null)

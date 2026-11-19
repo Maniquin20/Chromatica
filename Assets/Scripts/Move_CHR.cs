@@ -4,7 +4,9 @@ using UnityEngine;
 public class Move_CHR : MonoBehaviour
 {
     private Rigidbody2D rb;
+    private Collider2D playerCollider;
     private PlayerHealth playerHealth;
+    private int groundLayerMask;
 
     private float moveX;
     private float moveY;
@@ -13,11 +15,13 @@ public class Move_CHR : MonoBehaviour
     private bool CanClimb = false;
     private bool IsGrounded;
     private bool TouchingWall;
-    private bool jumpPressed;
+    private float jumpBufferTimer;
     private bool jumpHeld;
     private bool jumpReleased;
     private bool isKnockedBack;
     private bool stompBounceActive;
+    private bool canFastFall;
+    private float fastFallTimer;
 
     private float wallNormalX;
     private float originalGravity;
@@ -35,11 +39,15 @@ public class Move_CHR : MonoBehaviour
     public float jumpCutMultiplier = 0.5f;
     public float fastFallGravityMultiplier = 2.5f;
     public float maxFallSpeed = 12f;
+    [Min(0f)] public float FastFallDelay = 0.1f;
+    public float JumpBufferTime = 0.12f;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        playerCollider = GetComponent<Collider2D>();
         playerHealth = GetComponent<PlayerHealth>();
+        groundLayerMask = LayerMask.GetMask("Ground");
 
         originalGravity = rb.gravityScale;
     }
@@ -48,7 +56,6 @@ public class Move_CHR : MonoBehaviour
     {
         if (controlsLocked)
         {
-            jumpPressed = false;
             jumpHeld = false;
             jumpReleased = false;
             return;
@@ -61,7 +68,13 @@ public class Move_CHR : MonoBehaviour
         moveY = Input.GetAxisRaw("Vertical");
 
         if (Input.GetButtonDown("Jump"))
-            jumpPressed = true;
+        {
+            jumpBufferTimer = JumpBufferTime;
+        }
+        else if (jumpBufferTimer > 0f)
+        {
+            jumpBufferTimer -= Time.deltaTime;
+        }
 
         // NOVO: detecta se o jogador está segurando ou soltando espaço
         jumpHeld = Input.GetButton("Jump");
@@ -81,15 +94,25 @@ public class Move_CHR : MonoBehaviour
             return;
         }
 
+        IsGrounded = CheckGrounded();
         bool grounded = IsGrounded;
         bool wall = TouchingWall;
         float wallDirection = wallNormalX;
 
-        IsGrounded = false;
         TouchingWall = false;
 
         if (wallJumpTimer > 0)
             wallJumpTimer -= Time.fixedDeltaTime;
+
+        if (grounded)
+        {
+            canFastFall = false;
+            fastFallTimer = 0f;
+        }
+        else if (canFastFall)
+        {
+            fastFallTimer += Time.fixedDeltaTime;
+        }
 
         // Bloqueio durante o knockback
         if (isKnockedBack)
@@ -100,14 +123,14 @@ public class Move_CHR : MonoBehaviour
             }
             else
             {
-                jumpPressed = false;
+                jumpBufferTimer = 0f;
                 jumpReleased = false;
                 return;
             }
         }
 
         // Wall jump
-        if (jumpPressed && CanClimb && wall)
+        if (jumpBufferTimer > 0f && CanClimb && wall)
         {
             rb.gravityScale = originalGravity;
 
@@ -117,6 +140,9 @@ public class Move_CHR : MonoBehaviour
             );
 
             wallJumpTimer = WallJumpLockTime;
+            jumpBufferTimer = 0f;
+            canFastFall = true;
+            fastFallTimer = 0f;
             playerHealth?.PlayJumpSound();
         }
 
@@ -139,9 +165,13 @@ public class Move_CHR : MonoBehaviour
         }
 
         // Pulo normal
-        if (jumpPressed && grounded && !wall)
+        if (jumpBufferTimer > 0f && grounded && (!wall || !CanClimb))
         {
             rb.velocity = new Vector2(rb.velocity.x, JumpForce);
+            jumpBufferTimer = 0f;
+            canFastFall = true;
+            fastFallTimer = 0f;
+            playerHealth?.PlayJumpSound();
         }
 
         // NOVO: soltar espaço reduz a altura do pulo
@@ -160,20 +190,16 @@ public class Move_CHR : MonoBehaviour
         }
 
         // Queda rápida
-        if (!grounded && !wall && moveY < -0.5f && !stompBounceActive)
+        if (!grounded && !wall && canFastFall && fastFallTimer >= FastFallDelay &&
+            moveY < -0.5f && !stompBounceActive)
         {
             rb.gravityScale = originalGravity * fastFallGravityMultiplier;
-
-            if (rb.velocity.y > 0f)
-                rb.velocity = new Vector2(rb.velocity.x, 0f);
-
             rb.velocity = new Vector2(rb.velocity.x, Mathf.Max(
                 rb.velocity.y,
                 -maxFallSpeed
             ));
         }
 
-        jumpPressed = false;
         jumpReleased = false;
     }
 
@@ -212,6 +238,29 @@ public class Move_CHR : MonoBehaviour
         rb.velocity = new Vector2(rb.velocity.x, force);
 
         stompBounceActive = true;
+        canFastFall = true;
+        fastFallTimer = 0f;
+    }
+
+    public void ResetAfterRespawn(Vector3 position)
+    {
+        rb.position = position;
+        rb.velocity = Vector2.zero;
+        rb.gravityScale = originalGravity;
+        controlsLocked = false;
+        moveX = 0f;
+        moveY = 0f;
+        IsGrounded = false;
+        TouchingWall = false;
+        wallNormalX = 0f;
+        wallJumpTimer = 0f;
+        jumpBufferTimer = 0f;
+        jumpHeld = false;
+        jumpReleased = false;
+        isKnockedBack = false;
+        stompBounceActive = false;
+        canFastFall = false;
+        fastFallTimer = 0f;
     }
 
     // Mantém compatibilidade com o DeathZone antigo
@@ -229,13 +278,25 @@ public class Move_CHR : MonoBehaviour
         if (locked)
         {
             rb.velocity = Vector2.zero;
-            jumpPressed = false;
             jumpHeld = false;
             jumpReleased = false;
+            jumpBufferTimer = 0f;
+            canFastFall = false;
+            fastFallTimer = 0f;
         }
     }
 
     private void OnCollisionStay2D(Collision2D collision)
+    {
+        UpdateContacts(collision);
+    }
+
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        UpdateContacts(collision);
+    }
+
+    private void UpdateContacts(Collision2D collision)
     {
         if (playerHealth != null && playerHealth.IsDead)
             return;
@@ -260,5 +321,13 @@ public class Move_CHR : MonoBehaviour
                 }
             }
         }
+    }
+
+    private bool CheckGrounded()
+    {
+        Bounds bounds = playerCollider.bounds;
+        Vector2 checkSize = new Vector2(Mathf.Max(bounds.size.x - 0.05f, 0.01f), 0.06f);
+        Vector2 checkPosition = new Vector2(bounds.center.x, bounds.min.y - 0.02f);
+        return Physics2D.OverlapBox(checkPosition, checkSize, 0f, groundLayerMask) != null;
     }
 }
