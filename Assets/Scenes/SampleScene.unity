@@ -27559,11 +27559,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2615273429285591694, guid: 947de22ba8c4853439157a6ccd22d8ef, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 177.40767
+      value: 181.52
       objectReference: {fileID: 0}
     - target: {fileID: 2615273429285591694, guid: 947de22ba8c4853439157a6ccd22d8ef, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.5768048
+      value: 0.53
       objectReference: {fileID: 0}
     - target: {fileID: 2615273429285591694, guid: 947de22ba8c4853439157a6ccd22d8ef, type: 3}
       propertyPath: m_LocalPosition.z
@@ -134799,17 +134799,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8cf6b1367e08bd4aad574c4180465e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Move_CHR
+  MaxHorizontalSpeed: 5.75
+  GroundAcceleration: 100
+  GroundDeceleration: 150
+  AirAcceleration: 70
+  AirDeceleration: 60
   JumpForce: 7
-  speed: 5.75
+  VariableJumpMultiplier: 0.5
+  CoyoteTime: 0.1
+  JumpBufferTime: 0.12
   ClimbSpeed: 3
+  WallSlideSpeed: 2
+  WallSlideDelay: 0.5
   WallJumpHorizontal: 7
   WallJumpVertical: 5.5
   WallJumpLockTime: 0.5
-  jumpCutMultiplier: 0.5
-  fastFallGravityMultiplier: 2.5
-  maxFallSpeed: 12
+  WallJumpDirectionLockTime: 0.12
+  RisingGravityMultiplier: 1
+  FallingGravityMultiplier: 1.8
+  FastFallGravityMultiplier: 2.5
+  MaxFallSpeed: 12
   FastFallDelay: 0.05
-  JumpBufferTime: 0.12
 --- !u!61 &2111133343
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -135136,11 +135146,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2615273429285591694, guid: 947de22ba8c4853439157a6ccd22d8ef, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 164.95
+      value: 168.52
       objectReference: {fileID: 0}
     - target: {fileID: 2615273429285591694, guid: 947de22ba8c4853439157a6ccd22d8ef, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.59
+      value: 0.52
       objectReference: {fileID: 0}
     - target: {fileID: 2615273429285591694, guid: 947de22ba8c4853439157a6ccd22d8ef, type: 3}
       propertyPath: m_LocalPosition.z

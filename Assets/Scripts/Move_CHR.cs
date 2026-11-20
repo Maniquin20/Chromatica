@@ -1,8 +1,12 @@
 
 using UnityEngine;
+using UnityEngine.Serialization;
 
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public class Move_CHR : MonoBehaviour
 {
+    private const float WallContactGraceDuration = 0.04f;
+
     private Rigidbody2D rb;
     private Collider2D playerCollider;
     private PlayerHealth playerHealth;
@@ -13,34 +17,55 @@ public class Move_CHR : MonoBehaviour
 
     private bool controlsLocked;
     private bool CanClimb = false;
-    private bool IsGrounded;
     private bool TouchingWall;
     private float jumpBufferTimer;
     private bool jumpHeld;
     private bool jumpReleased;
     private bool isKnockedBack;
     private bool stompBounceActive;
+    private bool jumpCutAvailable;
+    private bool wallJumpNeedsWallSeparation;
     private bool canFastFall;
     private float fastFallTimer;
+    private float coyoteTimer;
 
     private float wallNormalX;
     private float originalGravity;
     private float wallJumpTimer;
+    private float wallJumpDirectionLockTimer;
+    private float wallJumpDirection;
+    private float wallIdleTimer;
+    private float wallContactGraceTimer;
 
-    public float JumpForce = 3f;
-    public float speed = 4f;
-    public float ClimbSpeed = 3f;
+    [Header("Movimento horizontal")]
+    [FormerlySerializedAs("speed"), Min(0f)] public float MaxHorizontalSpeed = 5.75f;
+    [Min(0f)] public float GroundAcceleration = 100f;
+    [Min(0f)] public float GroundDeceleration = 150f;
+    [Min(0f)] public float AirAcceleration = 70f;
+    [Min(0f)] public float AirDeceleration = 60f;
 
-    public float WallJumpHorizontal = 6f;
-    public float WallJumpVertical = 4f;
-    public float WallJumpLockTime = 0.2f;
+    [Header("Pulo")]
+    [Min(0f)] public float JumpForce = 7f;
+    [FormerlySerializedAs("jumpCutMultiplier"), Range(0.1f, 1f)] public float VariableJumpMultiplier = 0.5f;
+    [Min(0f)] public float CoyoteTime = 0.1f;
+    [Min(0f)] public float JumpBufferTime = 0.12f;
 
-    // NOVAS CONFIGURAÇÕES
-    public float jumpCutMultiplier = 0.5f;
-    public float fastFallGravityMultiplier = 2.5f;
-    public float maxFallSpeed = 12f;
-    [Min(0f)] public float FastFallDelay = 0.1f;
-    public float JumpBufferTime = 0.12f;
+    [Header("Parede")]
+    [Min(0f)] public float ClimbSpeed = 3f;
+    [Min(0f)] public float WallSlideSpeed = 2.5f;
+    [Min(0f)] public float WallSlideDelay = 0.5f;
+
+    [Min(0f)] public float WallJumpHorizontal = 7f;
+    [Min(0f)] public float WallJumpVertical = 5.5f;
+    [Min(0f)] public float WallJumpLockTime = 0.5f;
+    [Min(0f)] public float WallJumpDirectionLockTime = 0.12f;
+
+    [Header("Gravidade")]
+    [Min(0.01f)] public float RisingGravityMultiplier = 1f;
+    [Min(0.01f)] public float FallingGravityMultiplier = 1.8f;
+    [FormerlySerializedAs("fastFallGravityMultiplier"), Min(0.01f)] public float FastFallGravityMultiplier = 2.5f;
+    [FormerlySerializedAs("maxFallSpeed"), Min(0.01f)] public float MaxFallSpeed = 12f;
+    [Min(0f)] public float FastFallDelay = 0.05f;
 
     void Awake()
     {
@@ -94,24 +119,49 @@ public class Move_CHR : MonoBehaviour
             return;
         }
 
-        IsGrounded = CheckGrounded();
-        bool grounded = IsGrounded;
-        bool wall = TouchingWall;
+        // O probe pode ainda encostar no chão no primeiro passo da subida.
+        bool grounded = rb.velocity.y <= 0.1f && CheckGrounded();
+        if (TouchingWall)
+            wallContactGraceTimer = WallContactGraceDuration;
+        else
+            wallContactGraceTimer = Mathf.Max(
+                0f,
+                wallContactGraceTimer - Time.fixedDeltaTime
+            );
+
+        bool wall = TouchingWall || wallContactGraceTimer > 0f;
         float wallDirection = wallNormalX;
+        bool movingAwayFromWall = wall && moveX * wallDirection > 0.01f;
 
         TouchingWall = false;
+        if (!wall)
+            wallJumpNeedsWallSeparation = false;
+        if (!wall || movingAwayFromWall)
+        {
+            wallIdleTimer = 0f;
+            if (movingAwayFromWall)
+                wallContactGraceTimer = 0f;
+        }
 
         if (wallJumpTimer > 0)
             wallJumpTimer -= Time.fixedDeltaTime;
+        if (wallJumpDirectionLockTimer > 0f)
+            wallJumpDirectionLockTimer = Mathf.Max(
+                0f,
+                wallJumpDirectionLockTimer - Time.fixedDeltaTime
+            );
 
         if (grounded)
         {
+            coyoteTimer = CoyoteTime;
             canFastFall = false;
             fastFallTimer = 0f;
         }
-        else if (canFastFall)
+        else
         {
-            fastFallTimer += Time.fixedDeltaTime;
+            coyoteTimer = Mathf.Max(0f, coyoteTimer - Time.fixedDeltaTime);
+            if (canFastFall)
+                fastFallTimer += Time.fixedDeltaTime;
         }
 
         // Bloqueio durante o knockback
@@ -129,78 +179,142 @@ public class Move_CHR : MonoBehaviour
             }
         }
 
-        // Wall jump
-        if (jumpBufferTimer > 0f && CanClimb && wall)
-        {
-            rb.gravityScale = originalGravity;
+        bool climbing = false;
+        bool wallSliding = false;
+        bool jumpedThisStep = false;
 
+        // Wall jump
+        if (jumpBufferTimer > 0f && CanClimb && wall &&
+            !wallJumpNeedsWallSeparation)
+        {
             rb.velocity = new Vector2(
                 wallDirection * WallJumpHorizontal,
                 WallJumpVertical
             );
 
             wallJumpTimer = WallJumpLockTime;
+            wallJumpDirectionLockTimer = WallJumpDirectionLockTime;
+            wallJumpDirection = wallDirection;
+            wallJumpNeedsWallSeparation = true;
             jumpBufferTimer = 0f;
-            canFastFall = true;
-            fastFallTimer = 0f;
-            playerHealth?.PlayJumpSound();
+            jumpedThisStep = true;
         }
 
         // Escalada
-        else if (CanClimb && wall && wallJumpTimer <= 0)
+        else if (CanClimb && wall && wallJumpTimer <= 0 && !movingAwayFromWall)
         {
-            rb.gravityScale = 0f;
-
-            rb.velocity = new Vector2(
-                0f,
-                moveY * ClimbSpeed
-            );
+            if (moveY > 0.1f || moveY < -0.1f)
+            {
+                wallIdleTimer = 0f;
+                climbing = true;
+                rb.gravityScale = 0f;
+                rb.velocity = new Vector2(0f, Mathf.Sign(moveY) * ClimbSpeed);
+            }
+            else if (wallIdleTimer < WallSlideDelay)
+            {
+                wallIdleTimer += Time.fixedDeltaTime;
+                climbing = true;
+                rb.gravityScale = 0f;
+                rb.velocity = Vector2.zero;
+            }
+            else
+            {
+                wallSliding = true;
+                rb.gravityScale = 0f;
+                float slideSpeed = Mathf.Min(WallSlideSpeed, MaxFallSpeed);
+                rb.velocity = new Vector2(0f, -slideSpeed);
+            }
         }
 
         // Movimentação normal
         else
         {
-            rb.gravityScale = originalGravity;
-            rb.velocity = new Vector2(moveX * speed, rb.velocity.y);
+            ApplyHorizontalMovement(grounded);
         }
 
-        // Pulo normal
-        if (jumpBufferTimer > 0f && grounded && (!wall || !CanClimb))
+        // Pulo normal ou coyote jump.
+        if (!jumpedThisStep && jumpBufferTimer > 0f &&
+            (grounded || coyoteTimer > 0f) &&
+            (!wall || !CanClimb || (grounded && wallJumpNeedsWallSeparation)))
         {
             rb.velocity = new Vector2(rb.velocity.x, JumpForce);
             jumpBufferTimer = 0f;
+            jumpedThisStep = true;
+        }
+
+        if (jumpedThisStep)
+        {
+            wallIdleTimer = 0f;
+            coyoteTimer = 0f;
             canFastFall = true;
             fastFallTimer = 0f;
+            jumpCutAvailable = jumpHeld;
+            if (!jumpHeld)
+                rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * VariableJumpMultiplier);
             playerHealth?.PlayJumpSound();
         }
 
-        // NOVO: soltar espaço reduz a altura do pulo
-        if (jumpReleased && rb.velocity.y > 0f)
+        if (jumpReleased)
         {
-            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * jumpCutMultiplier);
+            if (jumpCutAvailable && !climbing && rb.velocity.y > 0f)
+                rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * VariableJumpMultiplier);
+            jumpCutAvailable = false;
         }
 
-        // Queda rápida ao segurar S
-
-       // Protege o impulso do stomp até o personagem atingir o ponto mais alto
+        // Protege o impulso do stomp até o personagem atingir o ponto mais alto.
         if (stompBounceActive)
         {
             if (rb.velocity.y <= 0f)
                 stompBounceActive = false;
         }
 
-        // Queda rápida
-        if (!grounded && !wall && canFastFall && fastFallTimer >= FastFallDelay &&
-            moveY < -0.5f && !stompBounceActive)
-        {
-            rb.gravityScale = originalGravity * fastFallGravityMultiplier;
-            rb.velocity = new Vector2(rb.velocity.x, Mathf.Max(
-                rb.velocity.y,
-                -maxFallSpeed
-            ));
-        }
+        ApplyGravity(grounded, climbing, wall, wallSliding);
 
         jumpReleased = false;
+    }
+
+    private void ApplyHorizontalMovement(bool grounded)
+    {
+        float horizontalInput = moveX;
+        if (wallJumpDirectionLockTimer > 0f && horizontalInput * wallJumpDirection < 0f)
+            horizontalInput = 0f;
+
+        bool hasHorizontalInput = Mathf.Abs(horizontalInput) > 0.01f;
+        float acceleration = grounded
+            ? hasHorizontalInput ? GroundAcceleration : GroundDeceleration
+            : hasHorizontalInput ? AirAcceleration : AirDeceleration;
+        float targetSpeed = horizontalInput * MaxHorizontalSpeed;
+        float horizontalSpeed = Mathf.MoveTowards(
+            rb.velocity.x,
+            targetSpeed,
+            acceleration * Time.fixedDeltaTime
+        );
+
+        rb.velocity = new Vector2(horizontalSpeed, rb.velocity.y);
+    }
+
+    private void ApplyGravity(bool grounded, bool climbing, bool wall, bool wallSliding)
+    {
+        if (climbing || wallSliding)
+            return;
+
+        bool fastFalling = !grounded && !wall && canFastFall &&
+            fastFallTimer >= FastFallDelay && moveY < -0.5f && !stompBounceActive;
+
+        float gravityMultiplier = rb.velocity.y > 0f
+            ? RisingGravityMultiplier
+            : FallingGravityMultiplier;
+        if (grounded && rb.velocity.y <= 0f)
+            gravityMultiplier = 1f;
+        if (fastFalling)
+            gravityMultiplier = FastFallGravityMultiplier;
+
+        rb.gravityScale = originalGravity * gravityMultiplier;
+        float fallSpeedCap = wallSliding
+            ? Mathf.Min(MaxFallSpeed, WallSlideSpeed)
+            : MaxFallSpeed;
+        if (rb.velocity.y < -fallSpeedCap)
+            rb.velocity = new Vector2(rb.velocity.x, -fallSpeedCap);
     }
 
     public void UnlockClimb()
@@ -229,6 +343,12 @@ public class Move_CHR : MonoBehaviour
 
         isKnockedBack = true;
         wallJumpTimer = WallJumpLockTime;
+        wallJumpDirectionLockTimer = 0f;
+        wallJumpNeedsWallSeparation = false;
+        wallIdleTimer = 0f;
+        wallContactGraceTimer = 0f;
+        coyoteTimer = 0f;
+        jumpCutAvailable = false;
     }
 
     // Impulso ao derrotar um inimigo pisando nele
@@ -240,6 +360,12 @@ public class Move_CHR : MonoBehaviour
         stompBounceActive = true;
         canFastFall = true;
         fastFallTimer = 0f;
+        wallJumpDirectionLockTimer = 0f;
+        wallJumpNeedsWallSeparation = false;
+        wallIdleTimer = 0f;
+        wallContactGraceTimer = 0f;
+        coyoteTimer = 0f;
+        jumpCutAvailable = false;
     }
 
     public void ResetAfterRespawn(Vector3 position)
@@ -250,13 +376,19 @@ public class Move_CHR : MonoBehaviour
         controlsLocked = false;
         moveX = 0f;
         moveY = 0f;
-        IsGrounded = false;
+        coyoteTimer = 0f;
         TouchingWall = false;
         wallNormalX = 0f;
         wallJumpTimer = 0f;
+        wallJumpDirectionLockTimer = 0f;
+        wallJumpDirection = 0f;
+        wallJumpNeedsWallSeparation = false;
+        wallIdleTimer = 0f;
+        wallContactGraceTimer = 0f;
         jumpBufferTimer = 0f;
         jumpHeld = false;
         jumpReleased = false;
+        jumpCutAvailable = false;
         isKnockedBack = false;
         stompBounceActive = false;
         canFastFall = false;
@@ -278,9 +410,17 @@ public class Move_CHR : MonoBehaviour
         if (locked)
         {
             rb.velocity = Vector2.zero;
+            wallJumpTimer = 0f;
+            wallJumpDirection = 0f;
+            wallJumpNeedsWallSeparation = false;
+            wallIdleTimer = 0f;
+            wallContactGraceTimer = 0f;
             jumpHeld = false;
             jumpReleased = false;
             jumpBufferTimer = 0f;
+            coyoteTimer = 0f;
+            wallJumpDirectionLockTimer = 0f;
+            jumpCutAvailable = false;
             canFastFall = false;
             fastFallTimer = 0f;
         }
@@ -301,23 +441,20 @@ public class Move_CHR : MonoBehaviour
         if (playerHealth != null && playerHealth.IsDead)
             return;
 
-        if (collision.gameObject.CompareTag("Chao"))
-        {
-            foreach (ContactPoint2D contact in collision.contacts)
-            {
-                if (contact.normal.y > 0.5f)
-                    IsGrounded = true;
-            }
-        }
-
         if (collision.gameObject.CompareTag("ParedeEscalavel"))
         {
             foreach (ContactPoint2D contact in collision.contacts)
             {
                 if (Mathf.Abs(contact.normal.x) > 0.5f)
                 {
+                    float preferredDirection = Mathf.Abs(moveX) > 0.01f
+                        ? -Mathf.Sign(moveX)
+                        : 1f;
+                    if (!TouchingWall ||
+                        contact.normal.x * preferredDirection > wallNormalX * preferredDirection)
+                        wallNormalX = contact.normal.x;
+
                     TouchingWall = true;
-                    wallNormalX = contact.normal.x;
                 }
             }
         }

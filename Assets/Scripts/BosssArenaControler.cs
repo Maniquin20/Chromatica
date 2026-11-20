@@ -134,4 +134,34 @@ public class BossArenaController : MonoBehaviour
         if (player != null)
             player.SetControlLocked(false);
     }
+
+    public void ResetAfterPlayerRespawn()
+    {
+        StopAllCoroutines();
+        started = false;
+
+        if (DialogueManager.Instance != null)
+            DialogueManager.Instance.CancelDialogue();
+
+        foreach (GameObject barrier in arenaBarriers)
+        {
+            if (barrier != null)
+                barrier.SetActive(false);
+        }
+
+        if (cameraFollow != null)
+        {
+            cameraFollow.enabled = true;
+            if (cameraFollow is Camera followCamera)
+                followCamera.ResetFollow();
+        }
+
+        bossController?.ResetAfterRespawn();
+
+        if (player != null)
+        {
+            player.SetControlLocked(false);
+            player = null;
+        }
+    }
 }

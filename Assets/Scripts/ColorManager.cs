@@ -30,7 +30,9 @@ public class ColorManager : MonoBehaviour
     {
         Image flash = CreateFlash(flashOrigin, player);
         RectTransform flashRect = (RectTransform)flash.transform;
-        Vector2 flashStartPosition = flashRect.anchoredPosition;
+        RectTransform canvasRect = (RectTransform)flashRect.parent;
+        float canvasWidth = canvasRect.rect.width;
+        float flashStartX = flashRect.anchoredPosition.x;
         float growDuration = Mathf.Max(0f, flashGrowDuration);
         float elapsed = 0f;
 
@@ -38,15 +40,15 @@ public class ColorManager : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float progress = Mathf.Clamp01(elapsed / growDuration);
-            flashRect.sizeDelta = new Vector2(Screen.width * progress, Screen.height);
-            flashRect.anchoredPosition = Vector2.Lerp(flashStartPosition, Vector2.zero, progress);
+            flashRect.sizeDelta = new Vector2(canvasWidth * progress, 0f);
+            flashRect.anchoredPosition = new Vector2(
+                Mathf.Lerp(flashStartX, 0f, progress),
+                0f
+            );
             yield return null;
         }
 
-        flashRect.anchorMin = Vector2.zero;
-        flashRect.anchorMax = Vector2.one;
-        flashRect.offsetMin = Vector2.zero;
-        flashRect.offsetMax = Vector2.zero;
+        flashRect.sizeDelta = new Vector2(canvasWidth, 0f);
         flashRect.anchoredPosition = Vector2.zero;
         yield return new WaitForSeconds(Mathf.Max(0f, flashHoldDuration));
 
@@ -97,9 +99,19 @@ public class ColorManager : MonoBehaviour
         GameObject flashObject = new GameObject("Flash", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         flashObject.transform.SetParent(canvas.transform, false);
         RectTransform rect = (RectTransform)flashObject.transform;
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = (Vector2)UnityEngine.Camera.main.WorldToScreenPoint(position) - new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        rect.sizeDelta = new Vector2(0f, Screen.height);
+        rect.anchorMin = new Vector2(0.5f, 0f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+
+        Vector2 screenPosition = UnityEngine.Camera.main.WorldToScreenPoint(position);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            (RectTransform)canvas.transform,
+            screenPosition,
+            null,
+            out Vector2 canvasPosition
+        );
+        rect.anchoredPosition = new Vector2(canvasPosition.x, 0f);
+        rect.sizeDelta = Vector2.zero;
 
         Image image = flashObject.GetComponent<Image>();
         image.color = Color.white;

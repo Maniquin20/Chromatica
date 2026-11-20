@@ -71,6 +71,29 @@ public class BossController : MonoBehaviour
         StartCoroutine(BattleLoop());
     }
 
+    public void ResetAfterRespawn()
+    {
+        StopAllCoroutines();
+        gameObject.SetActive(true);
+
+        isFighting = false;
+        isVulnerable = false;
+        isDead = false;
+        currentHealth = maxHealth;
+        transform.position = airbornePoint.position;
+
+        floorAttackZone.enabled = false;
+        headHitbox.enabled = false;
+        if (attackVisualRenderer != null)
+            attackVisualRenderer.enabled = false;
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.enabled = true;
+            SetColor(idleColor);
+        }
+    }
+
     private IEnumerator BattleLoop()
     {
         while (!isDead)
@@ -234,6 +257,6 @@ public class BossController : MonoBehaviour
         if (arenaController != null)
             arenaController.OnBossDefeated();
 
-        Destroy(gameObject);
+        gameObject.SetActive(false);
     }
 }

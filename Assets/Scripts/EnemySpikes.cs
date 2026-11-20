@@ -9,6 +9,7 @@ public class EnemySpikes : MonoBehaviour
     private float timer;
     private bool faceExposed;
     private bool isDead;
+    private Vector3 spawnPosition;
 
     [Header("Sprites")]
     public Sprite spikesUpSprite;
@@ -31,6 +32,7 @@ public class EnemySpikes : MonoBehaviour
 
     void Awake()
     {
+        spawnPosition = transform.position;
         spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         if (faceHitbox != null)
         {
@@ -109,6 +111,14 @@ public class EnemySpikes : MonoBehaviour
         if (faceSpriteRenderer != null)
             faceSpriteRenderer.enabled = false;
 
-        Destroy(gameObject);
+        gameObject.SetActive(false);
+    }
+
+    public void ResetAfterRespawn()
+    {
+        transform.position = spawnPosition;
+        gameObject.SetActive(true);
+        isDead = false;
+        SetState(false);
     }
 }

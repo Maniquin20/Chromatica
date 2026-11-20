@@ -63,6 +63,18 @@ public class DialogueManager : MonoBehaviour
         ShowLine();
     }
 
+    public void CancelDialogue()
+    {
+        if (!IsRunning)
+            return;
+
+        IsRunning = false;
+        dialoguePanel.SetActive(false);
+        currentLines = null;
+        currentLine = 0;
+        onDialogueEnd = null;
+    }
+
     private void ShowLine()
     {
         dialogueText.text = currentLines[currentLine];

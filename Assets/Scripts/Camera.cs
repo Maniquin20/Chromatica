@@ -22,4 +22,11 @@ public class Camera : MonoBehaviour
             suavidade
         );
     }
+
+    public void ResetFollow()
+    {
+        velocidade = Vector3.zero;
+        if (jogador != null)
+            transform.position = jogador.position + offset;
+    }
 }
